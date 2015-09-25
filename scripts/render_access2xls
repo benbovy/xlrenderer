@@ -85,6 +85,8 @@ def main():
                                              args.output_dir)
         r.render()
     except KeyboardInterrupt:
+        r.wkb.close()   # close the current open workbook
+        logger.info("Excel workbook closed")
         logger.error('Program interrupted!')
     finally:
         logging.shutdown()
