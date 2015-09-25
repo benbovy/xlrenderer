@@ -1,0 +1,94 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
+"""
+Render an Excel template from an Access Database using a specification file.
+"""
+
+import logging
+import sys
+import argparse
+import os
+
+import xlrenderer
+from xlrenderer.utils import create_access_engine
+
+
+logger = logging.getLogger(__name__)
+
+_LOG_LEVEL_STRINGS = ['critical', 'error', 'warning', 'info', 'debug']
+
+
+def _log_level_string_to_int(log_level_string):
+    """
+    Allow providing either number or string for log level argument.
+    """
+    if not log_level_string in _LOG_LEVEL_STRINGS:
+        message = 'invalid choice: {0} (choose from {1})'.format(
+            log_level_string, _LOG_LEVEL_STRINGS
+        )
+        raise argparse.ArgumentTypeError(message)
+
+    log_level_int = getattr(logging, log_level_string.upper(), logging.INFO)
+    # check the logging log_level_choices have not changed
+    # from our expected values
+    assert isinstance(log_level_int, int)
+    
+    return log_level_int
+
+
+def parse_command_line(argv):
+    """
+    Parse command line argument. See -h option.
+    """
+    formatter_class = argparse.RawDescriptionHelpFormatter
+    parser = argparse.ArgumentParser(
+        formatter_class=formatter_class,
+        description="Render an Excel template from an Access Database using "
+                    "a specification file."
+    )
+    parser.add_argument(
+        "-a", "--accdb", required=True, dest="access_dbfile",
+        help="name or path to the Access database file (*.mdb, *.accdb)"
+    )
+    parser.add_argument(
+        "-t", "--template", required=True, dest="wkb_template",
+        help="name or path to the Excel template file (*.xls, *.xlsx)"
+    )
+    parser.add_argument(
+        "-s", "--specfile", required=True, dest="spec_filename",
+        help="name or path to the specification file (YAML format)"
+    )
+    parser.add_argument(
+        "-o", "--outputdir", default=os.curdir, dest="output_dir",
+        help="output directory (will be created if doesn't exist)"
+    )
+    parser.add_argument(
+        "-l", "--log-level", default="info", dest="log_level",
+        type=_log_level_string_to_int, nargs='?',
+        help="Set the logging output level. {0}".format(_LOG_LEVEL_STRINGS)
+    )
+    args = parser.parse_args(argv[1:])
+    
+    return args
+
+
+def main():
+    args = parse_command_line(sys.argv)
+    logging.basicConfig(stream=sys.stderr, level=args.log_level,
+                        format='%(name)s (%(levelname)s): %(message)s')
+    try:
+        access_engine = create_access_engine(args.access_dbfile)
+        r = xlrenderer.ExcelTemplateRenderer(access_engine,
+                                             args.wkb_template,
+                                             args.spec_filename,
+                                             args.output_dir)
+        r.render()
+    except KeyboardInterrupt:
+        logger.error('Program interrupted!')
+    finally:
+        logging.shutdown()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
