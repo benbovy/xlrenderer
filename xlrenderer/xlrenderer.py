@@ -154,7 +154,6 @@ class ExcelTemplateRenderer(object):
         
         if apply_by_row:
             for row, pseries in df.iterrows():
-                print(Sheet.active(self.wkb).name)
                 self.insert_one_series(
                     pseries, render_block['cell_specification']
                 )
