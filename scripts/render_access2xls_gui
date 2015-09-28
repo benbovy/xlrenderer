@@ -1,0 +1,250 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Access DB - Excel Template Renderer with a basic GUI (Tkinter).
+"""
+
+from collections import OrderedDict
+from queue import Queue, Empty
+import threading
+import signal
+import logging
+import sys
+import os
+import subprocess
+
+import tkinter as tk
+from tkinter import ttk
+from tkinter.filedialog import askopenfilename, askdirectory
+from tkinter.scrolledtext import ScrolledText
+from tkinter.messagebox import showerror
+
+
+LOG_LEVELS = OrderedDict([
+    ('all', 0),
+    ('debug', 10),
+    ('info', 20),
+    ('warning', 30),
+    ('error', 40),
+    ('critical', 50)
+])
+
+
+class MainFrame(ttk.Frame):
+    def __init__(self, parent=None):
+        ttk.Frame.__init__(self, parent, padding=(15, 15, 12, 12))
+        self.parent = parent
+        self.init_ui()
+
+    def init_ui(self):
+
+        self.parent.title("Access DB - Excel Template Renderer")
+        self.parent.lift()
+        self.parent.columnconfigure(0, weight=1)
+        self.parent.rowconfigure(0, weight=1)
+
+        self.style = ttk.Style()
+        #self.style.theme_use("clam")
+
+        self.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self.rowconfigure(3, weight=1)
+        self.columnconfigure(0, weight=1)
+
+        # INPUT FRAME: input files / directories
+        self.input_frame = ttk.Frame(self)
+        self.input_frame.grid(column=0, row=0, sticky=(tk.N, tk.E, tk.W))
+        self.input_frame.columnconfigure(1, weight=5)
+        self.input_frame.columnconfigure(2, weight=1)
+        self.input_vars = {}
+        self.input_labels = {}
+        self.input_entries = {}
+        self.input_buttons = {}
+        self.create_input_ui(
+            'access_dbfile', 0, "Access DB File: ",
+            title="Choose an Access database file",
+            filetypes=(("Access DB files", (".accdb", ".mdb")),)
+        )
+        self.create_input_ui(
+            'wkb_template', 1, "XLS Template: ",
+            title="Choose an Excel file as template",
+            filetypes=(("Excel files", (".xls", ".xlsx")),)
+        )
+        self.create_input_ui(
+            'spec_filename', 2, "Specification File: ",
+            title="Choose a specification file (YAML format)",
+            filetypes=(("YAML files", (".yml", ".yaml")),)       
+        )
+        self.create_input_ui(
+            'output_dir', 3, "Output Directory: ",
+            dialog=askdirectory,
+            title="Choose an output directory",
+            mustexist=False,
+        )
+
+        # RUN FRAME: log-level select, progress bar and render/stop buttons
+        self.run_frame = ttk.Frame(self)
+        self.run_frame.grid(column=0, row=1, sticky=(tk.W, tk.E), pady=10)
+        self.run_frame.columnconfigure(2, weight=1)
+
+        self.loglevel_var = tk.StringVar()
+        self.log_level_label = ttk.Label(self.run_frame, text="Log Level: ")
+        self.loglevel_option = ttk.OptionMenu(
+            self.run_frame, self.loglevel_var, *LOG_LEVELS
+        )
+        self.loglevel_var.set('info')
+        
+        self.progress_bar = ttk.Progressbar(
+            self.run_frame, orient="horizontal",
+            length=200, mode="indeterminate"
+            )
+
+        self.render_button = ttk.Button(
+            self.run_frame, text="Render!", width=10,
+            command=self.action_start_render
+        )
+        self.stop_button = ttk.Button(
+            self.run_frame, text="Stop!", width=10, state='disabled',
+            command=self.action_stop_render
+        )
+
+        self.log_level_label.grid(row=0, column=0, sticky=tk.W)
+        self.loglevel_option.grid(row=0, column=1, sticky=tk.W)
+        self.progress_bar.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=20)
+        self.render_button.grid(row=0, column=3, sticky=(tk.W, tk.E))
+        self.stop_button.grid(row=0, column=4, sticky=tk.E)
+
+        # CONSOLE: scrolled-text
+        self.console = ScrolledText(self, state='disabled')
+        self.console.configure(font='TkFixedFont')
+        self.console.grid(column=0, row=3, sticky=(tk.N, tk.S, tk.E, tk.W),
+                          pady=10)
+
+
+    def create_input_ui(self, name, row, label_text,
+                        dialog=askopenfilename, **kwargs):
+        """Create an input (label + entry + filedialog button)"""
+        self.input_vars[name] = tk.StringVar()
+        self.input_labels[name] = ttk.Label(self.input_frame, text=label_text)
+        self.input_entries[name] = ttk.Entry(
+            self.input_frame, textvariable=self.input_vars[name]
+        )
+        self.input_buttons[name] = ttk.Button(
+            self.input_frame, text="...", width=4,
+            command=lambda: self.action_set_input(name, dialog, **kwargs)
+        )
+        self.input_labels[name].grid(row=row, column=0, sticky=tk.W)
+        self.input_entries[name].grid(row=row, column=1, sticky=(tk.E, tk.W))
+        self.input_buttons[name].grid(row=row, column=2, sticky=(tk.E, tk.W))
+    
+    def action_set_input(self, name, dialog, **kwargs):
+        """Open a dialog and get the choosen file or directory."""
+        if kwargs.get('filetypes') is not None:
+            kwargs['filetypes'] = list(kwargs['filetypes'])
+            kwargs['filetypes'] += [("All files", ".*")]
+        input_name = dialog(parent=self.parent, **kwargs)
+        self.input_vars[name].set(input_name)
+    
+    def action_start_render(self):
+#        for k, v in self.input_vars.items():
+#            if v.get():
+#                continue
+#            showerror(title="Input missing",
+#                      message="Please specify {}".format(
+#                          self.input_labels[k]['text']
+#                     ))
+#            return
+        
+        self.clear_console()
+        self.render_button.config(state='disabled')
+        self.progress_bar.start()
+        
+        # set the command line
+        cmd = [
+            sys.executable,
+            os.path.join(os.path.dirname(sys.argv[0]), 'render_access2xls'),
+            '--accdb', '{}'.format(self.input_vars['access_dbfile'].get()),
+            '--template', '{}'.format(self.input_vars['wkb_template'].get()),
+            '--specfile', '{}'.format(self.input_vars['spec_filename'].get()),
+            '--outputdir', '{}'.format(self.input_vars['output_dir'].get()),
+            '--log-level', self.loglevel_var.get(),
+        ]
+        cmd = [
+            sys.executable,
+            os.path.join(os.path.dirname(sys.argv[0]), 'render_access2xls'),
+            '--accdb', 'E:/bovy/notebooks/XLRenderer/data/temp/61080-01 ENGIS.mdb',
+            '--template', 'E:/bovy/notebooks/XLRenderer/data/test/fiches_acquisition_template.xlsx',
+            '--specfile', 'E:/bovy/notebooks/XLRenderer/data/test/spec_fiches_egout.yml',
+            '--outputdir', 'E:/bovy/notebooks/XLRenderer/data/test/fiches',
+            '--log-level', self.loglevel_var.get(),
+        ]
+        
+        # execute the command
+        self.render_task = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        
+        # non-blocking reading of the output of the subprocess
+        self.render_task_queue = Queue(maxsize=1)
+        t = threading.Thread(target=self.enqueue_output,
+                             args=(self.render_task.stderr,
+                                   self.render_task_queue))
+        t.daemon = True   # thread dies with the program
+        t.start()
+        
+        # enable stop button and start monitoring the process
+        self.stop_button.config(state='enabled')
+        self.parent.after(100, self.monitor_render_task)
+    
+    def action_stop_render(self):
+        self.render_task.terminate()
+        self.stop_button.config(state='disabled')
+        self.render_button.config(state='enabled')
+    
+    def monitor_render_task(self):
+        if self.render_task.poll() is not None:
+            try:
+                line = self.render_task_queue.get_nowait() # or q.get(timeout=.1)
+                self.append_console(line) 
+                self.parent.after(100, self.monitor_render_task)
+            except Empty:
+                self.progress_bar.stop()
+                self.render_button.config(state='enabled')
+                self.stop_button.config(state='disabled')
+                return
+        try:
+            line = self.render_task_queue.get_nowait() # or q.get(timeout=.1)
+            self.append_console(line)           
+            self.parent.after(100, self.monitor_render_task)
+        except Empty:
+            self.parent.after(100, self.monitor_render_task)
+    
+    def enqueue_output(self, out, queue):
+        for line in iter(out.readline, b''):
+            queue.put(line)
+        out.close()
+
+    def clear_console(self):
+        self.console.configure(state='normal')
+        self.console.delete('0.0', tk.END)
+        self.console.configure(state='disabled')
+        
+    def append_console(self, msg):
+        self.console.configure(state='normal')
+        self.console.insert(tk.END, msg)
+        self.console.configure(state='disabled')
+        self.console.yview(tk.END)
+
+
+def main():
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG,
+                        format='%(name)s (%(levelname)s): %(message)s')
+
+    root = tk.Tk()
+    root.geometry("800x580+100+100")
+    root.minsize(400, 400)
+    app = MainFrame(root)
+    root.mainloop()
+
+if __name__ == '__main__':
+    main()

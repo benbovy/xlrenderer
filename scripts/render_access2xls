@@ -9,6 +9,7 @@ import logging
 import sys
 import argparse
 import os
+import signal
 
 import xlrenderer
 from xlrenderer.utils import create_access_engine
@@ -71,7 +72,15 @@ def parse_command_line(argv):
     args = parser.parse_args(argv[1:])
     
     return args
+    
 
+def cleanup(sig, frame, renderer=None):
+    if renderer is not None:    
+        renderer.wkb.close()
+    logger.info("Excel workbook closed")
+    logger.warning('Program interrupted!')
+    sys.exit(0)
+    
 
 def main():
     args = parse_command_line(sys.argv)
@@ -83,11 +92,17 @@ def main():
                                              args.wkb_template,
                                              args.spec_filename,
                                              args.output_dir)
+        
+        if hasattr(signal, "SIGBREAK"):
+            # Handle Ctrl-Break e.g. under Windows (not working)
+            signal.signal(signal.SIGBREAK,
+                          lambda sig, frame: cleanup(sig, frame, renderer=r))
+        
         r.render()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         r.wkb.close()   # close the current open workbook
         logger.info("Excel workbook closed")
-        logger.error('Program interrupted!')
+        logger.warning('Program interrupted!')
     finally:
         logging.shutdown()
 
