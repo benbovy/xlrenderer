@@ -122,9 +122,12 @@ class ExcelTemplateRenderer(object):
         - **kwargs is used to overwrite any key/value pair
           in the render block.
 
-        """
+        """        
         # override render_block key/val with kwargs
         render_block.update(kwargs)
+        
+        logger.info("processing render block '%s'",
+                    render_block.get('name', '<unamed>'))
 
         # query the DB into a pandas DataFrame
         if query_context is None:
