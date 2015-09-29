@@ -148,14 +148,14 @@ class MainFrame(ttk.Frame):
         self.input_vars[name].set(input_name)
     
     def action_start_render(self):
-#        for k, v in self.input_vars.items():
-#            if v.get():
-#                continue
-#            showerror(title="Input missing",
-#                      message="Please specify {}".format(
-#                          self.input_labels[k]['text']
-#                     ))
-#            return
+        for k, v in self.input_vars.items():
+            if v.get():
+                continue
+            showerror(title="Input missing",
+                      message="Please specify {}".format(
+                          self.input_labels[k]['text']
+                     ))
+            return
         
         self.clear_console()
         self.render_button.config(state='disabled')
@@ -169,15 +169,6 @@ class MainFrame(ttk.Frame):
             '--template', '{}'.format(self.input_vars['wkb_template'].get()),
             '--specfile', '{}'.format(self.input_vars['spec_filename'].get()),
             '--outputdir', '{}'.format(self.input_vars['output_dir'].get()),
-            '--log-level', self.loglevel_var.get(),
-        ]
-        cmd = [
-            sys.executable,
-            os.path.join(os.path.dirname(sys.argv[0]), 'render_access2xls'),
-            '--accdb', 'E:/bovy/notebooks/XLRenderer/data/temp/61080-01 ENGIS.mdb',
-            '--template', 'E:/bovy/notebooks/XLRenderer/data/test/fiches_acquisition_template.xlsx',
-            '--specfile', 'E:/bovy/notebooks/XLRenderer/data/test/spec_fiches_egout.yml',
-            '--outputdir', 'E:/bovy/notebooks/XLRenderer/data/test/fiches',
             '--log-level', self.loglevel_var.get(),
         ]
         
