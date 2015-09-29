@@ -36,9 +36,10 @@ setup(
     package_dir={'xlrenderer':
                  'xlrenderer'},
     include_package_data=True,
-    #scripts=[
-    #    'scripts/render_access2xls'
-    #],
+    scripts=[
+        'scripts/render_access2xls',
+        'scripts/render_access2xls_gui'
+    ],
     install_requires=requirements,
     license="ISCL",
     zip_safe=False,
