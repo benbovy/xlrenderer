@@ -214,10 +214,12 @@ class MainFrame(ttk.Frame):
     def monitor_render_task(self):
         if self.render_task.poll() is not None:
             try:
-                line = self.render_task_queue.get_nowait() # or q.get(timeout=.1)
+                # get task remaining outputs
+                line = self.render_task_queue.get_nowait()
                 self.append_console(line) 
                 self.parent.after(100, self.monitor_render_task)
             except Empty:
+                # consider the task finished 
                 self.progress_bar.stop()
                 self.render_button.config(state='enabled')
                 self.stop_button.config(state='disabled')
