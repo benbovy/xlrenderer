@@ -64,12 +64,23 @@ class ExcelTemplateRenderer(object):
         )
         self.wkb.set_current()
     
-    def save_and_close_current_wkb(self, filename):
+    def save_current_wkb(self, filename):
         filepath = os.path.join(self.output_dirname, filename)
         self.wkb.save(filepath)
-        
         logger.info("created %s", filepath)
-
+    
+    def save_current_wkb_as_pdf(self, filename, worksheet_name):
+        filepath = os.path.join(self.output_dirname, filename)
+        try:
+            ws = Sheet(worksheet_name, wkb=self.wkb)
+            ws.xl_sheet.ExportAsFixedFormat(0, filepath)
+            logger.info("created %s", filepath)
+        except Exception as e:
+            logger.error("failed to export pdf")
+            logger.error("detailled error: %s - %s",
+                         e.__class__.__name__, str(e))
+    
+    def close_current_wkb(self):
         self.wkb.close()
 
     def insert_one_series(self, series, cell_specification):
@@ -175,10 +186,23 @@ class ExcelTemplateRenderer(object):
                                             **override_vars)
                 
                 if save_as is not None:
-                    filename = jinja2.Template(save_as).render(**pseries)
-                    self.save_and_close_current_wkb(filename)
-                    self.open_template_as_current_wkb()
-                    # re-activate the sheet because re-opened the template                    
+                    tpl = save_as['filename']
+                    filename = jinja2.Template(tpl).render(**pseries)
+                    self.save_current_wkb(filename)
+                    
+                    # save to pdf                    
+                    if save_as.get('export_pdf', False):
+                        filename_pdf = os.path.splitext(filename)[0] + '.pdf'
+                        if ws_name is None:
+                            logger.error(
+                                "(export to pdf) no worksheet specified"
+                            )
+                        else:
+                            self.save_current_wkb_as_pdf(filename_pdf, ws_name)
+                        
+                    # re-open the template, re-activate the worksheet
+                    self.close_current_wkb()
+                    self.open_template_as_current_wkb()                    
                     if ws_name is not None:
                         Sheet(ws_name, wkb=self.wkb).activate()
         
