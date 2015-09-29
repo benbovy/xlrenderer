@@ -30,6 +30,8 @@ LOG_LEVELS = OrderedDict([
     ('critical', 50)
 ])
 
+WINDOWS = sys.platform == 'win32'
+
 
 class MainFrame(ttk.Frame):
     def __init__(self, parent=None):
@@ -180,8 +182,12 @@ class MainFrame(ttk.Frame):
         ]
         
         # execute the command
+        kwargs = {}
+        if WINDOWS:
+            kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+        
         self.render_task = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs
         )
         
         # non-blocking reading of the output of the subprocess
@@ -197,7 +203,11 @@ class MainFrame(ttk.Frame):
         self.parent.after(100, self.monitor_render_task)
     
     def action_stop_render(self):
-        self.render_task.terminate()
+        if WINDOWS:
+            os.kill(self.render_task.pid, signal.CTRL_BREAK_EVENT)
+        else:
+            self.render_task.terminate()
+        
         self.stop_button.config(state='disabled')
         self.render_button.config(state='enabled')
     

@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 _LOG_LEVEL_STRINGS = ['critical', 'error', 'warning', 'info', 'debug']
 
+WINDOWS = sys.platform == 'win32'
+
 
 def _log_level_string_to_int(log_level_string):
     """
@@ -74,13 +76,13 @@ def parse_command_line(argv):
     return args
     
 
-def cleanup(sig, frame, renderer=None):
-    if renderer is not None:    
-        renderer.wkb.close()
-    logger.info("Excel workbook closed")
-    logger.warning('Program interrupted!')
-    sys.exit(0)
-    
+def sig_break_handler(sig, frame):
+    raise KeyboardInterrupt()
+
+if hasattr(signal, "SIGBREAK"):
+    # Handle Ctrl-Break e.g. under Windows (not working)
+    signal.signal(signal.SIGBREAK, sig_break_handler)
+
 
 def main():
     args = parse_command_line(sys.argv)
@@ -92,12 +94,6 @@ def main():
                                              args.wkb_template,
                                              args.spec_filename,
                                              args.output_dir)
-        
-        if hasattr(signal, "SIGBREAK"):
-            # Handle Ctrl-Break e.g. under Windows (not working)
-            signal.signal(signal.SIGBREAK,
-                          lambda sig, frame: cleanup(sig, frame, renderer=r))
-        
         r.render()
     except (KeyboardInterrupt, SystemExit):
         r.wkb.close()   # close the current open workbook
