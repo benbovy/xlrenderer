@@ -18,8 +18,14 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename, askdirectory
 from tkinter.scrolledtext import ScrolledText
-from tkinter.messagebox import showerror
+from tkinter.messagebox import showerror, showinfo, askyesno
 
+
+PROG_NAME = "Access2xls"
+PROG_VERSION = "0.1.0"
+PROG_YEAR = "2015"
+PROG_AUTHORS = "Benoit Bovy"
+PROG_LICENSE = "MIT"
 
 LOG_LEVELS = OrderedDict([
     ('all', 0),
@@ -121,7 +127,19 @@ class MainFrame(ttk.Frame):
         self.console.configure(font='TkFixedFont')
         self.console.grid(column=0, row=3, sticky=(tk.N, tk.S, tk.E, tk.W),
                           pady=10)
-
+        
+        # MENU BAR
+        self.menubar = tk.Menu(self.parent)
+        self.parent.config(menu=self.menubar)
+        
+        self.filemenu = tk.Menu(self.menubar)
+        self.filemenu.add_command(label="Quit", command=self.action_quit)
+        self.menubar.add_cascade(label="File", menu=self.filemenu)
+        
+        self.helpmenu = tk.Menu(self.menubar)
+        self.helpmenu.add_command(label="About",
+                                  command=self.action_show_about)
+        self.menubar.add_cascade(label="Help", menu=self.helpmenu)
 
     def create_input_ui(self, name, row, label_text,
                         dialog=askopenfilename, **kwargs):
@@ -138,6 +156,18 @@ class MainFrame(ttk.Frame):
         self.input_labels[name].grid(row=row, column=0, sticky=tk.W)
         self.input_entries[name].grid(row=row, column=1, sticky=(tk.E, tk.W))
         self.input_buttons[name].grid(row=row, column=2, sticky=(tk.E, tk.W))
+    
+    def action_quit(self):
+        if askyesno("Quit", "Quit? Ensure no render task is running"):
+            self.parent.quit()
+        return
+        
+    def action_show_about(self):
+        about_msg = "{}\nVersion: {}\nCopyright {}, {}\nLicense: {}".format(
+            PROG_NAME, PROG_VERSION, PROG_AUTHORS, PROG_YEAR, PROG_LICENSE        
+        )
+        showinfo(title="About {}".format(PROG_NAME), message=about_msg)
+        return
     
     def action_set_input(self, name, dialog, **kwargs):
         """Open a dialog and get the choosen file or directory."""
