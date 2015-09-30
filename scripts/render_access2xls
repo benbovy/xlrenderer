@@ -11,6 +11,28 @@ import argparse
 import os
 import signal
 
+
+WINDOWS = sys.platform == 'win32'
+
+# use with pynsist (needed to properly import pywin modules and xlwings)
+try:
+    script_dir, script = os.path.split(__file__)
+except NameError:
+    script_dir = os.path.dirname(sys.argv[0])
+script_dir_path = os.path.abspath(script_dir)
+pkgs_path = os.path.join(script_dir_path, 'pkgs')
+if os.path.isdir(pkgs_path) and WINDOWS:
+    sys.path.insert(0, pkgs_path)
+    sys.path.insert(0, os.path.join(pkgs_path, 'win32'))
+    sys.path.insert(0, os.path.join(pkgs_path, 'win32', 'lib'))
+    os.environ['PATH'] = ';'.join(
+        [os.path.join(pkgs_path, 'pywin32_system32'), os.environ['PATH']]
+    )
+    os.environ['PATH'] = ';'.join(
+        [os.path.join(pkgs_path, 'xlwings_dlls'), os.environ['PATH']]
+    )
+
+
 import xlrenderer
 from xlrenderer.utils import create_access_engine
 
@@ -18,8 +40,6 @@ from xlrenderer.utils import create_access_engine
 logger = logging.getLogger(__name__)
 
 _LOG_LEVEL_STRINGS = ['critical', 'error', 'warning', 'info', 'debug']
-
-WINDOWS = sys.platform == 'win32'
 
 
 def _log_level_string_to_int(log_level_string):
