@@ -3,6 +3,7 @@
 import os
 import logging
 
+import numpy as np
 import pandas as pd
 
 from xlwings import Workbook, Sheet, Range
@@ -21,8 +22,18 @@ def none2empty_filter(val):
     else:
         return ''
 
+def nan2empty_filter(val):
+    """Jinja2 template to convert 'nan' value to empty string."""
+    try:
+        if np.isnan(val):
+            return ''
+    except TypeError:
+        pass
+    return val
+
 jenv = jinja2.Environment()
 jenv.filters['none2empty'] = none2empty_filter
+jenv.filters['nan2empty'] = nan2empty_filter
 
 
 class ExcelTemplateRenderer(object):
