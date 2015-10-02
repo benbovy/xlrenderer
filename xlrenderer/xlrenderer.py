@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
+"""
+
+"""
 import os
 import logging
 
-import numpy as np
 import pandas as pd
 
 from xlwings import Workbook, Sheet, Range
@@ -13,27 +15,6 @@ import jinja2
 
 
 logger = logging.getLogger('xlrenderer')
-
-
-def none2empty_filter(val):
-    """Jinja2 template to convert None value to empty string."""
-    if not val is None:
-        return val
-    else:
-        return ''
-
-def nan2empty_filter(val):
-    """Jinja2 template to convert 'nan' value to empty string."""
-    try:
-        if np.isnan(val):
-            return ''
-    except TypeError:
-        pass
-    return val
-
-jenv = jinja2.Environment()
-jenv.filters['none2empty'] = none2empty_filter
-jenv.filters['nan2empty'] = nan2empty_filter
 
 
 class ExcelTemplateRenderer(object):
@@ -72,6 +53,11 @@ class ExcelTemplateRenderer(object):
         self.template_name = template_name
         self.spec_filename = spec_filename
         self.output_dirname = os.path.abspath(output_dirname)
+        
+        if jinja_env is None:
+            self.jinja_env = jinja2.Environment()
+        else:
+            self.jinja_env = jinja_env
         
         with open(self.spec_filename, 'r', encoding='utf-8') as f:
             self.render_blocks = yaml.load(f)
@@ -119,7 +105,7 @@ class ExcelTemplateRenderer(object):
         # non-contiguous user-defined cells
         for cs in cell_specification.get('cells', []):
             ws = cs.get('worksheet') or Sheet.active(self.wkb).name
-            content = jenv.from_string(cs['content']).render(**series)
+            content = self.jinja_env.from_string(cs['content']).render(**series)
             
             logger.debug("insert content '%s' at cell '%s' in sheet '%s'",
                          content, cs['cell'], ws)
@@ -165,7 +151,9 @@ class ExcelTemplateRenderer(object):
         # query the DB into a pandas DataFrame
         if query_context is None:
             query_context = dict()
-        query_template = jenv.from_string(render_block['query'].strip())
+        query_template = self.jinja_env.from_string(
+            render_block['query'].strip()
+        )
         query = query_template.render(**query_context)
         logger.debug("rendered query: \n'''\n%s\n'''", query)
         df = pd.read_sql(query, self.db_engine)
@@ -209,7 +197,7 @@ class ExcelTemplateRenderer(object):
                 
                 if save_as is not None:
                     tpl = save_as['filename']
-                    filename = jenv.from_string(tpl).render(**pseries)
+                    filename = self.jinja_env.from_string(tpl).render(**pseries)
                     self.save_current_wkb(filename)
                     
                     # save to pdf                    

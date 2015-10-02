@@ -1,7 +1,17 @@
 # -*- coding: utf-8 -*-
 
+"""
+Utils: database connections/engines and jinja2 custom filters.
+
+"""
+
+import numpy as np
 import sqlalchemy
 import pypyodbc
+import jinja2
+
+
+__all__ = ["connect_access_db", "create_access_engine", "jinja_custom_env"]
 
 
 def connect_access_db(filename):
@@ -22,3 +32,24 @@ def create_access_engine(filename):
         creator=lambda: connect_access_db(filename)
     )
     return engine
+
+
+def none2empty_filter(val):
+    """Jinja2 template to convert None value to empty string."""
+    if not val is None:
+        return val
+    else:
+        return ''
+
+def nan2empty_filter(val):
+    """Jinja2 template to convert 'nan' value to empty string."""
+    try:
+        if np.isnan(val):
+            return ''
+    except TypeError:
+        pass
+    return val
+
+jinja_custom_env = jinja2.Environment()
+jinja_custom_env.filters['none2empty'] = none2empty_filter
+jinja_custom_env.filters['nan2empty'] = nan2empty_filter

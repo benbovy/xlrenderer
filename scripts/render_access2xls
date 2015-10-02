@@ -100,7 +100,7 @@ def sig_break_handler(sig, frame):
     raise KeyboardInterrupt()
 
 if hasattr(signal, "SIGBREAK"):
-    # Handle Ctrl-Break e.g. under Windows (not working)
+    # Handle Ctrl-Break e.g. under Windows
     signal.signal(signal.SIGBREAK, sig_break_handler)
 
 
@@ -110,10 +110,12 @@ def main():
                         format='%(name)s (%(levelname)s): %(message)s')
     try:
         access_engine = create_access_engine(args.access_dbfile)
+        jenv = xlrenderer.utils.jinja_custom_env
         r = xlrenderer.ExcelTemplateRenderer(access_engine,
                                              args.wkb_template,
                                              args.spec_filename,
-                                             args.output_dir)
+                                             args.output_dir,
+                                             jinja_env=jenv)
         r.render()
     except (KeyboardInterrupt, SystemExit):
         r.wkb.close()   # close the current open workbook
