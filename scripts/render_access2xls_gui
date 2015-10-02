@@ -246,10 +246,11 @@ class MainFrame(ttk.Frame):
                 self.stop_button.config(state='disabled')
                 return
         try:
-            line = self.render_task_queue.get_nowait() # or q.get(timeout=.1)
-            self.append_console(line)           
-            self.parent.after(100, self.monitor_render_task)
+            line = self.render_task_queue.get_nowait()
+            self.append_console(line)
         except Empty:
+            pass
+        finally:
             self.parent.after(100, self.monitor_render_task)
     
     def enqueue_output(self, out, queue):
