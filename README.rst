@@ -43,6 +43,8 @@ Usage
 
 Basic usage from within Python:
 
+.. code-block:: python
+
     >>> from xlrenderer import ExcelTemplateRenderer
     >>> from sqlalchemy import create_engine
     >>> engine = create_engine('protocol://user@localhost:port/mydatabase')
